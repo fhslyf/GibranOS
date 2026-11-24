@@ -16,10 +16,6 @@ void vga_scroll_view(int delta_lines);
 void print_banner(void);
 void system_shutdown(void);
 
-/* Getter counter thread pekerja untuk pengujian scheduler */
-uint32_t kernel_get_worker_a_counter(void);
-uint32_t kernel_get_worker_b_counter(void);
-
 /* Inisialisasi state awal CLI Shell */
 void shell_init(void);
 

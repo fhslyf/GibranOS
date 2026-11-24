@@ -147,11 +147,11 @@ static void dl_thread_game_input(void) {
 }
 
 /* ------------------------------------------------------------------------
- * THREAD 2: AutoSave
+ * THREAD 2: GameSave
  *   mode deadlock     : mutex_vfs (R2) lalu mutex_score (R1)  <- BERLAWANAN
  *   mode deadlock_fix : mutex_score (R1) lalu mutex_vfs (R2)  <- urutan global
  * ------------------------------------------------------------------------ */
-static void dl_thread_auto_save(void) {
+static void dl_thread_game_save(void) {
     mutex_t*    first       = dl_lock_ordering ? &dl_mutex_score : &dl_mutex_vfs;
     mutex_t*    second      = dl_lock_ordering ? &dl_mutex_vfs   : &dl_mutex_score;
     const char* try_first   = dl_lock_ordering ? "lock(mutex_score) ..." : "lock(mutex_vfs) ...";
@@ -159,27 +159,27 @@ static void dl_thread_auto_save(void) {
     const char* try_second  = dl_lock_ordering ? "lock(mutex_vfs) ... menunggu R2"
                                                : "lock(mutex_score) ... menunggu R1";
 
-    dl_log("AutoSave", try_first, 0x07);
+    dl_log("GameSave", try_first, 0x07);
     mutex_lock(first);
-    dl_log("AutoSave", got_first, 0x0A);
+    dl_log("GameSave", got_first, 0x0A);
 
     dl_hold(DL_HOLD_TICKS);
 
-    dl_log("AutoSave", try_second, 0x0E);
+    dl_log("GameSave", try_second, 0x0E);
     mutex_lock(second);
-    dl_log("AutoSave", "MEMEGANG R1+R2 -> tulis scores.txt", 0x0A);
+    dl_log("GameSave", "MEMEGANG R1+R2 -> tulis scores.txt", 0x0A);
 
     mutex_unlock(second);
     mutex_unlock(first);
-    dl_log("AutoSave", "unlock kedua mutex -> selesai", 0x0A);
+    dl_log("GameSave", "unlock kedua mutex -> selesai", 0x0A);
 
     dl_finish();
 }
 
 /* ------------------------------------------------------------------------
  * Deteksi circular wait (wait-for graph 2 node):
- *   GameInput menunggu R2, dan R2 dipegang AutoSave
- *   AutoSave  menunggu R1, dan R1 dipegang GameInput
+ *   GameInput menunggu R2, dan R2 dipegang GameSave
+ *   GameSave  menunggu R1, dan R1 dipegang GameInput
  * ------------------------------------------------------------------------ */
 static int dl_is_circular_wait(tcb_t* ta, tcb_t* tb) {
     return ta->state == PROCESS_WAITING &&
@@ -216,7 +216,7 @@ static void dl_print_thread_row(const char* name, tcb_t* t) {
 static void dl_print_table(tcb_t* ta, tcb_t* tb) {
     vga_print("  THREAD     TID  STATE       MEMEGANG     MENUNGGU\n", 0x0B);
     dl_print_thread_row("GameInput", ta);
-    dl_print_thread_row("AutoSave", tb);
+    dl_print_thread_row("GameSave", tb);
 }
 
 /* ------------------------------------------------------------------------
@@ -232,18 +232,18 @@ void deadlock_demo_run(int use_lock_ordering) {
     if (!use_lock_ordering) {
         vga_print("=== [5] DEMONSTRASI DEADLOCK (CIRCULAR WAIT) ===\n", 0x0C);
         vga_print("GameInput: lock R1(mutex_score) -> lock R2(mutex_vfs)\n", 0x07);
-        vga_print("AutoSave : lock R2(mutex_vfs)   -> lock R1(mutex_score)  <- urutan berlawanan\n\n", 0x07);
+        vga_print("GameSave : lock R2(mutex_vfs)   -> lock R1(mutex_score)  <- urutan berlawanan\n\n", 0x07);
     } else {
         vga_print("=== [5] SOLUSI DEADLOCK (LOCK ORDERING) ===\n", 0x0A);
         vga_print("Aturan global: SELALU kunci R1(mutex_score) dulu, baru R2(mutex_vfs).\n", 0x07);
-        vga_print("GameInput & AutoSave: lock R1 -> lock R2\n\n", 0x07);
+        vga_print("GameInput & GameSave: lock R1 -> lock R2\n\n", 0x07);
     }
 
     /* Catat waktu mulai SEBELUM thread dibuat (thread bisa jalan saat Shell mencetak) */
     uint32_t start = timer_get_ticks();
 
     pcb_t* pa = process_create("GameInput", dl_thread_game_input, 1, PRIVILEGE_KERNEL);
-    pcb_t* pb = process_create("AutoSave",  dl_thread_auto_save,  1, PRIVILEGE_KERNEL);
+    pcb_t* pb = process_create("GameSave",  dl_thread_game_save,  1, PRIVILEGE_KERNEL);
 
     if (pa == NULL || pb == NULL || pa->main_thread == NULL || pb->main_thread == NULL) {
         vga_print("[ERROR] Gagal membuat thread demo (tabel proses penuh).\n", 0x0C);
@@ -257,7 +257,7 @@ void deadlock_demo_run(int use_lock_ordering) {
 
     vga_print("[KERNEL] Thread GameInput (TID ", 0x0B);
     dl_print_uint(ta->tid, 0x0B);
-    vga_print(") & AutoSave (TID ", 0x0B);
+    vga_print(") & GameSave (TID ", 0x0B);
     dl_print_uint(tb->tid, 0x0B);
     vga_print(") dibuat -> READY, dijadwalkan Round Robin.\n", 0x0B);
 
@@ -291,8 +291,8 @@ void deadlock_demo_run(int use_lock_ordering) {
 
     if (deadlocked) {
         vga_print("[DEADLOCK!] Circular wait terdeteksi (bertahan > 1 detik):\n", 0x0C);
-        vga_print("  GameInput memegang R1, menunggu R2  --->  R2 dipegang AutoSave\n", 0x0C);
-        vga_print("  AutoSave  memegang R2, menunggu R1  --->  R1 dipegang GameInput\n", 0x0C);
+        vga_print("  GameInput memegang R1, menunggu R2  --->  R2 dipegang GameSave\n", 0x0C);
+        vga_print("  GameSave  memegang R2, menunggu R1  --->  R1 dipegang GameInput\n", 0x0C);
         vga_print("  Coffman: mutual exclusion, hold & wait, no preemption, circular wait.\n\n", 0x07);
         dl_print_table(ta, tb);
 
@@ -302,7 +302,7 @@ void deadlock_demo_run(int use_lock_ordering) {
         mutex_init(&dl_mutex_score);
         mutex_init(&dl_mutex_vfs);
 
-        vga_print("\n[RECOVERY] Kernel menghentikan GameInput & AutoSave -> TERMINATED,\n", 0x0E);
+        vga_print("\n[RECOVERY] Kernel menghentikan GameInput & GameSave -> TERMINATED,\n", 0x0E);
         vga_print("           mutex_score & mutex_vfs dilepas paksa. Shell tetap berjalan.\n", 0x0E);
         vga_print("Jalankan 'deadlock_fix' untuk melihat pencegahan dengan Lock Ordering.\n", 0x07);
 
@@ -324,5 +324,5 @@ void deadlock_demo_run(int use_lock_ordering) {
         mutex_init(&dl_mutex_vfs);
     }
 
-    vga_print("Cek 'ps' untuk melihat status GameInput & AutoSave.\n", 0x08);
+    vga_print("Cek 'ps' untuk melihat status GameInput & GameSave.\n", 0x08);
 }

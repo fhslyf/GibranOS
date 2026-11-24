@@ -4,7 +4,7 @@
 
 #include "../02_Pengelolaan_Proses_Thread/process.h"
 
-#define SCHEDULER_QUANTUM 5
+#define SCHEDULER_QUANTUM 1
 
 void scheduler_init(void);
 void scheduler_add_thread(tcb_t* thread);
