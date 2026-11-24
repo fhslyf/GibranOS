@@ -265,7 +265,9 @@ void kernel_main(void) {
     vga_print("[VFS]  RAMDisk Initialized (words.txt, scores.txt loaded).\n", 0x0A);
     vga_print("[MEM]  Kernel Heap Allocator Ready (64 KB, first-fit).\n", 0x0A);
     vga_print("[PROC] Process Management Ready.\n", 0x0A);
-    vga_print("[SCHED] Round Robin Scheduler Ready (Quantum 5).\n", 0x0A);
+    vga_print("[SCHED] Round Robin Scheduler Ready (Quantum ", 0x0A);
+    vga_print_number(scheduler_get_quantum());
+    vga_print(").\n", 0x0A);
 
     vga_print(
         shell != NULL

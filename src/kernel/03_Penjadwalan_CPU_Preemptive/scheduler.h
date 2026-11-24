@@ -12,5 +12,6 @@ tcb_t* scheduler_pick_next(void);
 tcb_t* scheduler_tick(void);
 tcb_t* scheduler_get_current(void);
 uint32_t scheduler_get_switch_count(void);
+uint32_t scheduler_get_quantum(void);
 
 #endif
