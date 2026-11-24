@@ -484,9 +484,12 @@ static void render_right_windows_only(void) {
     arena_box(12, WIN2_LEFT, 17, WIN2_RIGHT, 0x0B);
     arena_puts(12, 51, "[ WIN 3: ROUND ROBIN LIVE ]", 0x0B);
 
+    uint32_t quantum = scheduler_get_quantum();
     arena_puts(13, 51, "CtxSwitch:", 0x07);
     arena_put_uint(13, 61, scheduler_get_switch_count(), 0x0F);
-    arena_puts(13, 69, "Q:5 tick", 0x08);
+    arena_puts(13, 69, "Q:", 0x08);
+    int qlen = arena_put_uint(13, 71, quantum, 0x08);
+    arena_puts_lim(13, 71 + qlen, " tick", 0x08, WIN2_RIGHT - 1);
 
     int trow = 14;
     for (uint32_t i = 0; i < MAX_PROCESSES && trow <= 16; i++) {
@@ -498,7 +501,7 @@ static void render_right_windows_only(void) {
         }
 
         tcb_t* t = p->main_thread;
-        uint32_t quantum_ticks = t->switches * SCHEDULER_QUANTUM;
+        uint32_t quantum_ticks = t->switches * quantum;
         arena_putc(trow, 51, 'T', 0x08);
         arena_put_uint(trow, 52, t->tid, 0x07);
         arena_puts_lim(trow, 54, p->name, 0x0F, 62);

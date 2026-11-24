@@ -106,3 +106,7 @@ tcb_t* scheduler_get_current(void) {
 uint32_t scheduler_get_switch_count(void) {
     return context_switch_count;
 }
+
+uint32_t scheduler_get_quantum(void) {
+    return SCHEDULER_QUANTUM;
+}
