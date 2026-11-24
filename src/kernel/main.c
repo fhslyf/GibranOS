@@ -22,18 +22,6 @@ int cursor_row = 0;
 int cursor_col = 0;
 static int scroll_offset = 0;
 
-/* Counter aktivitas WorkerA dan WorkerB untuk perintah schedtest */
-static volatile uint32_t worker_a_counter = 0;
-static volatile uint32_t worker_b_counter = 0;
-
-uint32_t kernel_get_worker_a_counter(void) {
-    return worker_a_counter;
-}
-
-uint32_t kernel_get_worker_b_counter(void) {
-    return worker_b_counter;
-}
-
 static inline void outb(uint16_t port, uint8_t val) {
     __asm__ volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
 }
@@ -246,20 +234,6 @@ void system_shutdown(void) {
     }
 }
 
-/* Thread Worker A */
-static void worker_a_task(void) {
-    while (1) {
-        worker_a_counter++;
-    }
-}
-
-/* Thread Worker B */
-static void worker_b_task(void) {
-    while (1) {
-        worker_b_counter++;
-    }
-}
-
 void kernel_main(void) {
     __asm__ volatile ("cli");
 
@@ -275,15 +249,7 @@ void kernel_main(void) {
     scheduler_init();
     process_init();
 
-    /* Membuat dua worker dan satu thread CLI Shell */
-    pcb_t* worker_a = process_create(
-        "WorkerA", worker_a_task, 1, PRIVILEGE_KERNEL
-    );
-
-    pcb_t* worker_b = process_create(
-        "WorkerB", worker_b_task, 1, PRIVILEGE_KERNEL
-    );
-
+    /* Membuat thread CLI Shell utama */
     pcb_t* shell = process_create(
         "Shell", shell_task, 1, PRIVILEGE_KERNEL
     );
@@ -302,11 +268,10 @@ void kernel_main(void) {
     vga_print("[SCHED] Round Robin Scheduler Ready (Quantum 5).\n", 0x0A);
 
     vga_print(
-        worker_a != NULL && worker_b != NULL && shell != NULL
-        ? "[THREAD] WorkerA, WorkerB, Shell berhasil dibuat.\n"
-        : "[ERROR] Gagal membuat salah satu thread.\n",
-        worker_a != NULL && worker_b != NULL && shell != NULL
-        ? 0x0A : 0x0C
+        shell != NULL
+        ? "[THREAD] Thread utama Shell berhasil dibuat.\n"
+        : "[ERROR] Gagal membuat thread Shell.\n",
+        shell != NULL ? 0x0A : 0x0C
     );
 
     vga_print(
@@ -316,7 +281,7 @@ void kernel_main(void) {
         0x0A
     );
 
-    if (worker_a == NULL || worker_b == NULL || shell == NULL) {
+    if (shell == NULL) {
         vga_print("[ERROR] Scheduler tidak diaktifkan.\n", 0x0C);
 
         while (1) {
@@ -324,7 +289,7 @@ void kernel_main(void) {
         }
     }
 
-    /* Aktifkan interrupt setelah semua thread siap */
+    /* Aktifkan interrupt setelah thread siap */
     __asm__ volatile ("sti");
 
     /* Kernel utama menjadi idle */
